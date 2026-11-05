@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Can we guess Portugal's electricity demand?</title>
+<meta name="description" content="Time series analysis of Portugal's electricity load: what the data looks like, how forecasting models work, and a small game to try beating them.">
+<style>
+  :root { color-scheme: light;
+    --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --line:#e1e0d9;
+    --blue:#2a78d6; --red:#e34948; --amber:#eda100; --grey:#c3c2b7; }
+  * { box-sizing:border-box; }
+  body { font-family:"Segoe UI",system-ui,-apple-system,sans-serif; background:var(--page); color:var(--ink); margin:0; }
+  main { max-width:920px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:1.9rem; margin:0 0 8px; line-height:1.2; }
+  h2 { font-size:1.4rem; margin:0 0 4px; }
+  h3 { font-size:1.1rem; margin:0 0 4px; }
+  p { color:var(--ink-2); line-height:1.5; margin:6px 0; }
+  .lead { font-size:1.15rem; color:var(--ink); }
+  section { background:var(--surface); border:1px solid var(--line); border-radius:10px; margin:20px 0; padding:20px; }
+  .sub { color:var(--muted); margin:2px 0 14px; }
+  svg { width:100%; height:auto; display:block; }
+  svg text { font-family:inherit; fill:var(--muted); font-size:11px; }
+  .legend { display:flex; flex-wrap:wrap; gap:14px; margin:6px 0 0; color:var(--ink-2); font-size:.92rem; }
+  .dot { width:12px; height:12px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:-1px; }
+  .row { display:grid; grid-template-columns:200px 1fr 64px; align-items:center; gap:8px; margin:7px 0; color:var(--ink-2); font-size:.95rem; }
+  .trilho { background:#efeee9; border-radius:4px; height:18px; overflow:hidden; }
+  .barra { height:100%; border-radius:0 4px 4px 0; }
+  .valor { font-weight:700; color:var(--ink); text-align:right; font-variant-numeric:tabular-nums; }
+  button { font:inherit; border:2px solid var(--blue); background:#fff; color:var(--blue); border-radius:8px; padding:8px 14px; cursor:pointer; font-weight:600; }
+  button.on, button:hover { background:var(--blue); color:#fff; }
+  .tabs { display:flex; gap:8px; margin:6px 0 10px; }
+  .game input[type=range] { width:100%; accent-color:var(--blue); margin:10px 0; }
+  .big { font-size:2rem; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .box { border:1px solid var(--line); border-radius:8px; padding:12px; background:#fff; }
+  dl { margin:8px 0 0; } dt { font-weight:700; margin-top:12px; } dd { margin:2px 0 0; color:var(--ink-2); line-height:1.5; }
+  ul { color:var(--ink); line-height:1.6; padding-left:20px; }
+  footer { color:var(--muted); font-size:.9rem; margin-top:24px; } a { color:var(--blue); }
+  @media (max-width:600px) { h1{font-size:1.5rem;} section{padding:16px 14px; margin:14px 0;} .row{grid-template-columns:120px 1fr 52px; font-size:.85rem;} .grid2{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<main>
+<h1>Can we guess how much electricity Portugal will use tomorrow?</h1>
+<p class="lead" id="headline"></p>
+
+<section>
+  <h2>1. The data: eighteen months of demand</h2>
+  <p class="sub">Average electricity load per day, from <span id="d0"></span> to <span id="d1"></span>. The shaded part is the period we kept hidden from the models to test them.</p>
+  <svg id="serie" viewBox="0 0 860 280" role="img" aria-label="Daily electricity load"></svg>
+  <p class="sub" id="serieInfo">Move the mouse over the chart.</p>
+</section>
+
+<section>
+  <h2>2. The rhythm: a day and a week</h2>
+  <p class="sub">Demand is not random. It follows a daily and a weekly cycle. Hours and weekdays below are as recorded in the file (see the note at the end of this section).</p>
+  <h3>Average load by hour of the day</h3>
+  <svg id="horas" viewBox="0 0 860 240" role="img" aria-label="Average hourly load, quiet days and other days"></svg>
+  <div class="legend"><span><span class="dot" style="background:var(--blue)"></span>Five busier days</span><span><span class="dot" style="background:var(--amber)"></span>The two quietest days</span></div>
+  <h3 style="margin-top:18px">Average daily load by day of the week</h3>
+  <div id="semana"></div>
+  <p class="sub"><strong>A note on the dates.</strong> Real Portuguese demand is lowest at weekends and at night, and dips on public holidays. In this file the quietest days are Tuesday and Wednesday, the lowest hour is 13:00, and no holiday dip shows up at any date shift we tried. The dates and hours in the dataset therefore look offset from the real calendar (we could not find out why). The weekly and daily cycles are intact, so the comparison of models holds, but read the names of days and hours as labels, not as real weekdays.</p>
+</section>
+
+<section class="game">
+  <h2>3. Your turn: beat the models</h2>
+  <p class="sub">Here are the last seven days of demand. Guess tomorrow's average load, then see how close you got compared with the models. The days come from the test period, which the models never saw during training.</p>
+  <svg id="ult7" viewBox="0 0 860 200" role="img" aria-label="Last seven days"></svg>
+  <p><strong>Your guess for tomorrow (<span id="gDate"></span>):</strong> <span class="big" id="gVal"></span></p>
+  <input type="range" id="gSlider" aria-label="Your guess">
+  <div class="tabs"><button id="gGo">Check my guess</button><button id="gNext" style="display:none">Next day</button></div>
+  <div id="gRes" aria-live="polite"></div>
+</section>
+
+<section>
+  <h2>4. Who predicts best?</h2>
+  <p class="sub">Average error in MW when predicting the load, on the 5-month test period. Lower is better.</p>
+  <div class="tabs"><button id="t1" class="on">1 day ahead</button><button id="t7">7 days ahead</button></div>
+  <div id="rank"></div>
+  <p id="rankNote"></p>
+</section>
+
+<section>
+  <h2>5. What these models are, in plain words</h2>
+  <dl>
+    <dt>Naive forecasts</dt><dd>The baselines. "Tomorrow equals today", or "tomorrow equals the same weekday last week". Any serious model has to beat them.</dd>
+    <dt>ARIMA</dt><dd>A recipe that predicts the next value from the most recent values and the most recent mistakes. It has no notion of weekdays.</dd>
+    <dt>SARIMA</dt><dd>ARIMA plus a weekly cycle. Adding the weekly rhythm was what made the difference in this project.</dd>
+    <dt>KNN (k-nearest neighbours)</dt><dd>Looks for the most similar past stretches (the last seven days) and averages what happened next.</dd>
+    <dt>Random Forest</dt><dd>Many small decision trees that vote. In the last version we also told it the position of the day in the weekly cycle.</dd>
+    <dt>AIC</dt><dd>A score that rewards a model for fitting the data and penalises it for being complicated. Lower is better. The weekly term took it from <span id="aic0"></span> to <span id="aic1"></span>.</dd>
+  </dl>
+</section>
+
+<section>
+  <h2>Limits worth knowing</h2>
+  <ul>
+    <li>One test period of about five months, from <span id="t0"></span>. The close models (SARIMA, KNN, Random Forest) are within a few MW of each other, so there is no clear winner.</li>
+    <li>Seven days ahead, the simple models barely beat "same weekday last week".</li>
+    <li>The dates in the file look offset from the real calendar (see section 2), so holidays could not be used and the names of weekdays are only labels.</li>
+    <li>No weather data was used. Temperature is probably the next big gain.</li>
+  </ul>
+</section>
+
+<footer>
+  <p>Data: hourly electricity load of Portugal (13,104 hours, Nov 2020 to May 2022), originally from the public dataset <code>energy_load_pt.csv</code>. The page only shows daily averages computed from it, not the raw file.</p>
+  <p><a href="https://github.com/JeffAirData/Energy-Load-Portugal-Temporal-Series">Code and notebook on GitHub</a> · Jefferson Melo, <a href="https://www.linkedin.com/in/jefferson-omelo">LinkedIn</a></p>
+</footer>
+</main>
+
+<script>
+const D = __DATA__;
+const $ = (id) => document.getElementById(id);
+const nf = (v) => Math.round(v).toLocaleString("en-US");
+const NS = "http://www.w3.org/2000/svg";
+const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// header text
+const r1 = D.results["1"], best = r1["Random Forest (7 lags + weekday)"], naive = r1["Naive: same as today"];
+$("headline").textContent = `A model that knows the weekly rhythm guesses tomorrow's demand within about ${Math.round(100*best/D.mean_load)}% (${nf(best)} MW on about ${nf(Math.round(D.mean_load/100)*100)} MW). Copying today's value gives an error ${(naive/best).toFixed(1)} times larger.`;
+$("d0").textContent = D.dates[0]; $("d1").textContent = D.dates[D.dates.length-1];
+$("t0").textContent = D.dates[D.n0]; $("aic0").textContent = nf(D.aic.arima); $("aic1").textContent = nf(D.aic.sarima);
+
+function frame(svg, W, H, m, ymin, ymax, ticks, fmt) {
+  const x0 = m.l, x1 = W - m.r, y0 = H - m.b, y1 = m.t;
+  const Y = (v) => y0 - (v - ymin) / (ymax - ymin) * (y0 - y1);
+  ticks.forEach((t) => { el("line", { x1: x0, x2: x1, y1: Y(t), y2: Y(t), stroke: css("--line") }, svg); const tx = el("text", { x: x0 - 6, y: Y(t) + 4, "text-anchor": "end" }, svg); tx.textContent = fmt(t); });
+  return { x0, x1, y0, y1, Y };
+}
+
+// 1. daily series
+(function () {
+  const svg = $("serie"), W = 860, H = 280, v = D.daily, n = v.length;
+  const f = frame(svg, W, H, { l: 48, r: 10, t: 10, b: 24 }, 3500, 7500, [4000, 5000, 6000, 7000], nf);
+  const X = (i) => f.x0 + i / (n - 1) * (f.x1 - f.x0);
+  el("rect", { x: X(D.n0), y: f.y1, width: f.x1 - X(D.n0), height: f.y0 - f.y1, fill: css("--blue"), opacity: .08 }, svg);
+  el("path", { d: v.map((y, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + f.Y(y).toFixed(1)).join(""), fill: "none", stroke: css("--ink"), "stroke-width": 1.3 }, svg);
+  [0, Math.floor(n / 3), Math.floor(2 * n / 3), n - 1].forEach((i) => { const t = el("text", { x: X(i), y: H - 6, "text-anchor": i ? (i === n - 1 ? "end" : "middle") : "start" }, svg); t.textContent = D.dates[i]; });
+  const g = el("line", { y1: f.y1, y2: f.y0, stroke: css("--blue"), opacity: 0 }, svg), hit = el("rect", { x: f.x0, y: f.y1, width: f.x1 - f.x0, height: f.y0 - f.y1, fill: "transparent" }, svg);
+  const move = (e) => { const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * W, i = Math.max(0, Math.min(n - 1, Math.round((px - f.x0) / (f.x1 - f.x0) * (n - 1))));
+    g.setAttribute("x1", X(i)); g.setAttribute("x2", X(i)); g.setAttribute("opacity", .6);
+    const wd = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date(D.dates[i] + "T00:00:00Z").getUTCDay()];
+    $("serieInfo").textContent = `${wd} ${D.dates[i]}: ${nf(v[i])} MW on average` + (i >= D.n0 ? " (test period)" : ""); };
+  hit.addEventListener("mousemove", move); hit.addEventListener("touchmove", (e) => move(e.touches[0]));
+})();
+
+// 2. hourly profile and weekdays
+(function () {
+  const svg = $("horas"), W = 860, H = 240, all = D.hour_other.concat(D.hour_quiet);
+  const ymin = Math.floor(Math.min(...all) / 500) * 500, ymax = Math.ceil(Math.max(...all) / 500) * 500;
+  const f = frame(svg, W, H, { l: 48, r: 10, t: 10, b: 24 }, ymin, ymax, [ymin, (ymin + ymax) / 2, ymax], nf);
+  const X = (h) => f.x0 + h / 23 * (f.x1 - f.x0);
+  [[D.hour_other, "--blue"], [D.hour_quiet, "--amber"]].forEach(([s, c]) => el("path", { d: s.map((y, h) => (h ? "L" : "M") + X(h).toFixed(1) + " " + f.Y(y).toFixed(1)).join(""), fill: "none", stroke: css(c), "stroke-width": 2.4 }, svg));
+  [0, 6, 12, 18, 23].forEach((h) => { const t = el("text", { x: X(h), y: H - 6, "text-anchor": "middle" }, svg); t.textContent = String(h).padStart(2, "0") + ":00"; });
+  const mx = Math.max(...D.weekday), mn = Math.min(...D.weekday);
+  $("semana").innerHTML = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d, i) => `<div class="row" style="grid-template-columns:50px 1fr 64px"><span>${d}</span><div class="trilho"><div class="barra" style="width:${(D.weekday[i] / mx * 100).toFixed(1)}%;background:${D.quiet.includes(i) ? css("--amber") : css("--blue")}"></div></div><span class="valor">${nf(D.weekday[i])}</span></div>`).join("")
+    + `<p class="sub">The two quietest days use about ${Math.round((1 - D.weekday.filter((_, i) => D.quiet.includes(i)).reduce((x, y) => x + y) / 2 / (D.weekday.filter((_, i) => !D.quiet.includes(i)).reduce((x, y) => x + y) / 5)) * 100)}% less electricity than the other five. A model that ignores the weekly cycle misses this.</p>`;
+})();
+
+// 3. game
+(function () {
+  const G = D.game, lo = 3500, hi = 7500; let cur = null, done = 0, sums = { you: 0, sarima: 0, rf: 0, naive: 0 };
+  const svg = $("ult7"), sl = $("gSlider"); sl.min = lo; sl.max = hi; sl.step = 10;
+  function draw(v) {
+    svg.innerHTML = ""; const f = frame(svg, 860, 200, { l: 48, r: 10, t: 10, b: 22 }, 3500, 7500, [4000, 5000, 6000, 7000], nf), bw = 70;
+    v.forEach((y, i) => { const x = f.x0 + 30 + i * ((f.x1 - f.x0 - 60) / 6) - bw / 2; el("rect", { x, y: f.Y(y), width: bw, height: f.y0 - f.Y(y), fill: css("--grey") }, svg); const t = el("text", { x: x + bw / 2, y: f.Y(y) - 4, "text-anchor": "middle" }, svg); t.textContent = nf(y); });
+  }
+  function round() {
+    cur = G[Math.floor(Math.random() * G.length)]; draw(cur.last7); $("gDate").textContent = cur.date;
+    sl.value = cur.last7[6]; $("gVal").textContent = nf(sl.value) + " MW"; $("gRes").innerHTML = ""; $("gGo").style.display = ""; $("gNext").style.display = "none"; sl.disabled = false;
+  }
+  sl.addEventListener("input", () => { $("gVal").textContent = nf(sl.value) + " MW"; });
+  $("gGo").addEventListener("click", () => {
+    const y = +sl.value, e = { you: Math.abs(y - cur.actual), sarima: Math.abs(cur.sarima - cur.actual), rf: Math.abs(cur.rf - cur.actual), naive: Math.abs(cur.naive_week - cur.actual) };
+    done++; for (const k in e) sums[k] += e[k]; sl.disabled = true;
+    const you = e.you <= Math.min(e.sarima, e.rf) ? "You beat both models on this day." : (e.you < Math.max(e.sarima, e.rf) ? "You beat one of the models." : "The models were closer this time.");
+    $("gRes").innerHTML = `<div class="grid2"><div class="box"><div class="sub">Actual load on ${cur.date}</div><div class="big">${nf(cur.actual)} MW</div><p>${you}</p></div>
+      <div class="box"><div class="sub">Error on this day</div><p><span class="dot" style="background:var(--ink)"></span>You: <strong>${nf(e.you)}</strong> MW<br><span class="dot" style="background:var(--blue)"></span>SARIMA: <strong>${nf(e.sarima)}</strong> MW<br><span class="dot" style="background:var(--red)"></span>Random Forest: <strong>${nf(e.rf)}</strong> MW<br><span class="dot" style="background:var(--grey)"></span>Same weekday last week: <strong>${nf(e.naive)}</strong> MW</p></div></div>
+      <p class="sub">Average error over ${done} ${done === 1 ? "round" : "rounds"}: you ${nf(sums.you / done)} · SARIMA ${nf(sums.sarima / done)} · Random Forest ${nf(sums.rf / done)} · same weekday last week ${nf(sums.naive / done)} MW</p>`;
+    $("gGo").style.display = "none"; $("gNext").style.display = "";
+  });
+  $("gNext").addEventListener("click", round); round();
+})();
+
+// 4. ranking
+(function () {
+  const colors = { "Random Forest (7 lags + weekday)": "--red", "Random Forest (7 lags)": "--red", "SARIMA(2,0,2)(1,0,1)[7]": "--blue", "KNN (7 lags)": "--amber" };
+  function show(h) {
+    const r = D.results[h], items = Object.entries(r).sort((a, b) => a[1] - b[1]), mx = Math.max(...items.map((i) => i[1]));
+    $("rank").innerHTML = items.map(([n, v]) => `<div class="row"><span>${n}</span><div class="trilho"><div class="barra" style="width:${(v / mx * 100).toFixed(1)}%;background:${css(colors[n] || "--grey")}"></div></div><span class="valor">${nf(v)}</span></div>`).join("");
+    $("rankNote").textContent = h === "1" ? "One day ahead: using the weekly rhythm (SARIMA) or a model that learns from the last seven days cuts the naive error to about a third. The plain ARIMA, without the weekly term, is no better than copying last week."
+      : "Seven days ahead: the models are within about 10% of \"same weekday last week\" (except the plain ARIMA). Simple models add little at this horizon.";
+    $("t1").classList.toggle("on", h === "1"); $("t7").classList.toggle("on", h === "7");
+  }
+  $("t1").onclick = () => show("1"); $("t7").onclick = () => show("7"); show("1");
+})();
+</script>
+</body>
+</html>
