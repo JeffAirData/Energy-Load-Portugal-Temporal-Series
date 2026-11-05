@@ -1,4 +1,4 @@
-Imagem principal: `docs/img/painel_resumo.png` não existe neste projeto. Use o carrossel `docs/img/cartao_1.png` a `cartao_5.png` (1080x1080), nessa ordem, ou `docs/img/03_modelos.png` como imagem única.
+Carrossel (PDF, 5 páginas): `publicacao/carrossel.pdf`. Os cartões individuais estão em `docs/img/cartao_1.png` a `cartao_5.png` (1080x1080). Alternativa: imagem única `docs/img/03_modelos.png`.
 
 ---
 
