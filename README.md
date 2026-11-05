@@ -17,19 +17,19 @@ A time series study of Portugal's electricity load, combining classical statisti
 3. **Stationarity**: Augmented Dickey-Fuller test, `ndiffs` and `nsdiffs`.
 4. **PACF / ACF** analysis to suggest AR and MA orders.
 5. **Shapiro-Wilk** (normality) and **White** (heteroscedasticity) tests.
-6. **ARIMA** models with candidate orders (2,1,2), (1,1,2) and (1,1,1), selected by coefficient significance, plus residual diagnostics.
+6. **ARIMA** models on the differenced daily series, with candidate orders (2,0,2), (1,0,2) and (1,0,1) compared by coefficient significance and AIC (ARIMA(2,0,2) has the lowest AIC), plus residual diagnostics (Ljung-Box and Shapiro-Wilk still reject white-noise, normal residuals, which points to unmodelled weekly seasonality).
 7. **Time-delay embedding** to turn the series into a supervised problem, with a chronological 70/30 train/test split and `TimeSeriesSplit` (5 folds).
 8. **Model selection** among Ridge, Lasso, Decision Tree, Random Forest and KNN, followed by a `GridSearchCV` on KNN.
 
 ## Results
 
-Error metric: MAE, in the same units as the load series. Decision Tree and Random Forest have no fixed `random_state`, so their CV values vary slightly between runs (a re-run gave about 167 and 128); Ridge, Lasso, KNN and the tuned KNN test MAE reproduce exactly.
+Error metric: MAE. The supervised models are trained on the **differenced daily series** (day-over-day change in the daily mean load, in the same units as the load), so these errors refer to the daily change, not to the load level. Tree-based models use `random_state=42`; Ridge, Lasso, KNN and the tuned KNN test MAE do not depend on a seed.
 
 | Model | CV MAE | Test MAE |
 |---|---|---|
 | KNN | 126.4 | – |
-| Random Forest | 130.0 | – |
-| Decision Tree | 159.3 | – |
+| Random Forest | 128.3 | – |
+| Decision Tree | 162.9 | – |
 | Ridge | 182.9 | 195.1 |
 | Lasso | 182.9 | – |
 | KNN (tuned with GridSearchCV) | – | **87.5** |
@@ -50,10 +50,8 @@ jupyter notebook "Energy_Load_'Portugal'.ipynb"
 
 ## Next steps
 
-- Fix the ARIMA differencing order: the series is differenced once before modelling and `d=1` then applies a second difference. Refitting with `d=0` (or `d=1` on the original series) lowers the AIC by about 315 points (see the note in the notebook), but the residuals remain autocorrelated.
 - The Shapiro-Wilk test rejects normality of the series; check whether a Box-Cox transformation improves the residual diagnostics.
-- Set `random_state` in the tree-based models for fully reproducible results.
-- Add seasonal terms (SARIMA, weekly seasonality) and compare against the machine learning models on the same folds.
+- Add seasonal terms (SARIMA, weekly seasonality) to address the remaining residual autocorrelation and compare against the machine learning models on the same folds.
 - Evaluate more forecast horizons and add exogenous variables (e.g., calendar and weather).
 
 ## Author
