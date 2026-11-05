@@ -8,7 +8,7 @@ A time series study of Portugal's electricity load, combining classical statisti
 
 - 13,104 hourly observations of electricity load in Portugal, starting on 2020-11-17.
 - The series is resampled to daily frequency for the classical analysis; lagged values are used as features for the supervised models.
-- **Data source note:** the notebook originally loaded `energy_load_pt.csv` from the public repository `vcerqueira/energy_load_data`. That repository is no longer available (404), so the data-loading cell does not run as is. To reproduce the analysis, place a copy of `energy_load_pt.csv` (hourly, columns `datetime` and `load`) in the working directory and adjust the path in the data-loading cell. The dataset is not redistributed here.
+- **Reproducing:** the notebook originally loaded `energy_load_pt.csv` from the public repository `vcerqueira/energy_load_data`, which is no longer available. The file is not redistributed here because its redistribution terms are unknown (the load figures come from Portugal's transmission operator, REN). To run the notebook, obtain a copy of `energy_load_pt.csv` (hourly, columns `datetime` and `load`, 13,104 rows from 2020-11-17 08:00 to 2022-05-17 08:00) and point the data-loading cell (`pd.read_csv(...)`) to its local path. Equivalent public data can be exported from the ENTSO-E Transparency Platform (Total Load, Portugal) or the REN Data Hub, but figures may differ slightly from those below.
 
 ## What the notebook does
 
@@ -23,7 +23,7 @@ A time series study of Portugal's electricity load, combining classical statisti
 
 ## Results
 
-Error metric: MAE, in the same units as the load series.
+Error metric: MAE, in the same units as the load series. Decision Tree and Random Forest have no fixed `random_state`, so their CV values vary slightly between runs (a re-run gave about 167 and 128); Ridge, Lasso, KNN and the tuned KNN test MAE reproduce exactly.
 
 | Model | CV MAE | Test MAE |
 |---|---|---|
@@ -50,9 +50,10 @@ jupyter notebook "Energy_Load_'Portugal'.ipynb"
 
 ## Next steps
 
-- Revisit the ARIMA differencing order: the series is differenced once before modelling, and `d=1` then applies a second difference. Refit with `d=0` on the differenced series (or `d=1` on the original) and compare.
+- Fix the ARIMA differencing order: the series is differenced once before modelling and `d=1` then applies a second difference. Refitting with `d=0` (or `d=1` on the original series) lowers the AIC by about 315 points (see the note in the notebook), but the residuals remain autocorrelated.
 - The Shapiro-Wilk test rejects normality of the series; check whether a Box-Cox transformation improves the residual diagnostics.
-- Add seasonal terms (SARIMA) and compare against the machine learning models on the same folds.
+- Set `random_state` in the tree-based models for fully reproducible results.
+- Add seasonal terms (SARIMA, weekly seasonality) and compare against the machine learning models on the same folds.
 - Evaluate more forecast horizons and add exogenous variables (e.g., calendar and weather).
 
 ## Author
